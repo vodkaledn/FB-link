@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iBasic Tracked Link Creator</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --border: #d9dee5;
+    --brand: #1877f2;
+    --brand-dark: #145dbf;
+    --ok-bg: #eaf7ea; --ok-border: #b7e3b7; --ok-text: #1c6b1c;
+    --err-bg: #fdeaea; --err-border: #f3b7b7; --err-text: #a11;
+    --warn-bg: #fff6e0; --warn-border: #f0d585; --warn-text: #7a5c00;
+    --code-bg: #f0f2f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --card: #1a1f26; --text: #e6e9ee; --muted: #9aa4b2;
+      --border: #2c333d; --code-bg: #232a33;
+      --ok-bg: #16301a; --ok-border: #2f5c34; --ok-text: #8fe39a;
+      --err-bg: #34181a; --err-border: #6b2b2f; --err-text: #f0a3a3;
+      --warn-bg: #33290f; --warn-border: #66551f; --warn-text: #eccf7d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg); color: var(--text); margin: 0;
+    padding: 32px 16px; line-height: 1.45;
+  }
+  .wrap { max-width: 600px; margin: 0 auto; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  h1 { font-size: 21px; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 4px; font-size: 14px; }
+  label { display: block; margin-top: 16px; font-weight: 600; font-size: 13.5px; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+  input, select {
+    width: 100%; padding: 9px 11px; margin-top: 5px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card); color: var(--text);
+  }
+  input:focus, select:focus { outline: 2px solid var(--brand); outline-offset: -1px; border-color: var(--brand); }
+  button {
+    margin-top: 20px; padding: 11px 20px; border: none; border-radius: 8px;
+    background: var(--brand); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button:hover { background: var(--brand-dark); }
+  button:disabled { background: var(--muted); cursor: default; }
+  .preview { margin-top: 10px; font-size: 12.5px; color: var(--muted); word-break: break-all; }
+  .preview code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  .box { margin-top: 16px; padding: 12px 14px; border-radius: 8px; display: none; font-size: 14px; word-break: break-all; }
+  .box.ok  { background: var(--ok-bg);  border: 1px solid var(--ok-border);  color: var(--ok-text);  display: block; }
+  .box.err { background: var(--err-bg); border: 1px solid var(--err-border); color: var(--err-text); display: block; }
+  .box.warn{ background: var(--warn-bg);border: 1px solid var(--warn-border);color: var(--warn-text);display: block; }
+  #linkOut { font-weight: 700; font-size: 15px; }
+  .copyBtn { margin-top: 0; margin-left: 8px; padding: 5px 12px; font-size: 12px; background: #444; }
+  .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
+  details { margin-top: 4px; }
+  summary { cursor: pointer; font-size: 13px; color: var(--brand); font-weight: 600; }
+  .settings-row { display: flex; gap: 10px; }
+  .settings-row > div { flex: 1; }
+  .saved-tag { font-size: 12px; color: var(--ok-text); margin-left: 8px; }
+  a { color: var(--brand); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>iBasic Tracked Link Creator</h1>
+    <p class="sub">Post ID + landing page + slug &rarr; a branded Short.io link with UTM tracking.</p>
+
+    <details id="settings">
+      <summary>⚙️ Short.io settings <span id="settingsTag" class="saved-tag"></span></summary>
+      <label>Public API key
+        <span class="hint">— short.io → Integrations &amp; API → create a <b>PUBLIC</b> key (starts with <code>pk_</code>). Safe for client-side use. Stored only in this browser.</span>
+      </label>
+      <input id="apiKey" type="password" placeholder="pk_xxxxxxxxxxxxxxxx" autocomplete="off">
+      <p class="hint" style="margin-top:12px">
+        Links are always created on <code id="domainLabel"></code> as
+        <code id="prefixLabel"></code><i>suffix</i>.
+      </p>
+      <button type="button" id="saveSettings">Save settings</button>
+    </details>
+  </div>
+
+  <div class="card">
+    <form id="form">
+      <label>Facebook Post ID <span class="hint">→ utm_campaign</span></label>
+      <input id="post_id" required placeholder="1122334455">
+
+      <label>Landing page URL <span class="hint">(product or category page)</span></label>
+      <input id="url" required placeholder="https://ibasicvietnam.com/collections/ao-nguc">
+
+      <label>Slug suffix <span class="hint">(after the prefix)</span></label>
+      <input id="slug" required placeholder="brathethaochocon">
+
+      <div class="preview" id="preview"></div>
+
+      <button type="submit" id="submitBtn">Create link</button>
+    </form>
+
+    <div class="status" id="status"></div>
+    <div class="box" id="result"></div>
+  </div>
+
+  <p class="sub" style="text-align:center">
+    UTM: source <code>Facebook</code> · medium <code>social</code> · campaign = Post ID
+  </p>
+</div>
+
+<script>
+// ---- Fixed iBasic settings ------------------------------------------------
+// The Short.io domain and slug prefix never change, so they're hard-coded.
+// If the domain string ever changes on Short.io, edit DOMAIN below.
+const DOMAIN     = "ibasic.s.gy";   // <-- iBasic Short.io domain
+const SLUG_PREFIX = "iBasic_";
+const UTM_SOURCE = "Facebook";
+const UTM_MEDIUM = "social";
+
+// ---- Settings persistence (localStorage) ----------------------------------
+const els = {
+  apiKey: document.getElementById('apiKey'),
+  settingsTag: document.getElementById('settingsTag'),
+  settings: document.getElementById('settings'),
+};
+document.getElementById('domainLabel').textContent = DOMAIN;
+document.getElementById('prefixLabel').textContent = SLUG_PREFIX;
+
+function loadSettings() {
+  els.apiKey.value = localStorage.getItem('shortio_key') || '';
+  const ready = !!els.apiKey.value;
+  els.settingsTag.textContent = ready ? '✓ configured' : '— not set up yet';
+  if (!ready) els.settings.open = true;   // force-open until configured
+}
+document.getElementById('saveSettings').addEventListener('click', () => {
+  localStorage.setItem('shortio_key', els.apiKey.value.trim());
+  loadSettings();
+  els.settings.open = false;
+});
+loadSettings();
+
+// ---- Helpers ---------------------------------------------------------------
+function buildUtmUrl(landingUrl, postId) {
+  const u = new URL(landingUrl);
+  u.searchParams.set('utm_source', UTM_SOURCE);
+  u.searchParams.set('utm_medium', UTM_MEDIUM);
+  u.searchParams.set('utm_campaign', postId);
+  return u.toString();
+}
+function cleanSlug(suffix) {
+  let s = suffix.trim().replace(/\s+/g, '').replace(/[^A-Za-z0-9_]/g, '');
+  if (s.startsWith(SLUG_PREFIX)) s = s.slice(SLUG_PREFIX.length);
+  return SLUG_PREFIX + s;
+}
+
+// ---- Live preview ----------------------------------------------------------
+const preview = document.getElementById('preview');
+function updatePreview() {
+  const slug = document.getElementById('slug').value.trim();
+  preview.innerHTML = slug
+    ? 'will become: <code>' + DOMAIN + '/' + cleanSlug(slug) + '</code>'
+    : '';
+}
+document.getElementById('slug').addEventListener('input', updatePreview);
+
+// ---- Submit ----------------------------------------------------------------
+const form = document.getElementById('form');
+const submitBtn = document.getElementById('submitBtn');
+const statusEl = document.getElementById('status');
+const resultEl = document.getElementById('result');
+
+function showResult(cls, html) {
+  resultEl.className = 'box ' + cls;
+  resultEl.innerHTML = html;
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const apiKey = localStorage.getItem('shortio_key');
+  if (!apiKey) {
+    els.settings.open = true;
+    showResult('warn', 'Add your Short.io public API key in ⚙️ settings first.');
+    return;
+  }
+
+  const postId = document.getElementById('post_id').value.trim();
+  const landingUrl = document.getElementById('url').value.trim();
+  const slugSuffix = document.getElementById('slug').value.trim();
+
+  let longUrl, path;
+  try {
+    longUrl = buildUtmUrl(landingUrl, postId);
+    path = cleanSlug(slugSuffix);
+  } catch (err) {
+    showResult('err', 'That landing page URL doesn\'t look valid. Include https://');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creating…';
+  resultEl.className = 'box';
+  statusEl.textContent = 'Calling Short.io…';
+
+  try {
+    const resp = await fetch('https://api.short.io/links/public', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': apiKey,
+      },
+      body: JSON.stringify({
+        domain: DOMAIN,
+        originalURL: longUrl,
+        path: path,
+        allowDuplicates: false,
+      }),
+    });
+    const data = await resp.json();
+    statusEl.textContent = '';
+
+    if (resp.ok && data.shortURL) {
+      showResult('ok',
+        'Link created: <span id="linkOut">' + data.shortURL + '</span>' +
+        '<button type="button" class="copyBtn" onclick="copyLink()">Copy</button>' +
+        '<div class="preview" style="margin-top:8px">→ ' + longUrl + '</div>');
+    } else if (resp.status === 409 || /already exists|duplicate/i.test(JSON.stringify(data))) {
+      showResult('warn', 'The slug <code>' + path + '</code> already exists on ' + DOMAIN +
+        '. Pick a different suffix.');
+    } else {
+      const msg = (data && (data.message || data.error)) || ('HTTP ' + resp.status);
+      showResult('err', 'Short.io error: ' + msg);
+    }
+  } catch (err) {
+    statusEl.textContent = '';
+    showResult('err', 'Network/CORS error: ' + err.message +
+      '. Make sure you used a PUBLIC key (pk_…), not the secret key. If it persists, ' +
+      'serve this file over http instead of opening it directly (see README).');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create link';
+  }
+});
+
+function copyLink() {
+  navigator.clipboard.writeText(document.getElementById('linkOut').textContent);
+}
+</script>
+</body>
+</html>
